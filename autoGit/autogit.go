@@ -13,7 +13,8 @@ var dirs = []string{
 }
 
 // 返回修改过的文件名和未跟踪的文件名
-func gitstatus(path string) (modified []string, untracked []string) {
+// TODO delete提交
+func gitstatus(path string) (modified, untracked, deleted []string) {
 
 	// 查看git状态
 	cmd := exec.Command("git", "status")
@@ -26,6 +27,7 @@ func gitstatus(path string) (modified []string, untracked []string) {
 
 	modified = findModified(string(gitstatus))
 	untracked = findUntracked(string(gitstatus))
+	deleted = findDeleted(string(gitstatus))
 	return
 }
 
@@ -42,9 +44,22 @@ func findModified(status string) (modified []string) {
 	return
 }
 
+func findDeleted(status string) (deleted []string) {
+	reg := regexp.MustCompile(`deleted:\s{4}(.*)\n`)
+	if reg == nil {
+		fmt.Println("regex err")
+		return
+	}
+	result := reg.FindAllStringSubmatch(status, -1)
+	for _, text := range result {
+		deleted = append(deleted, text[1])
+	}
+	return
+}
+
 func findUntracked(status string) (untracked []string) {
 	reg1 := regexp.MustCompile(`use "git add <file>..." to include in what will be committed.\n((.*\n){1,})no changes`)
-	reg2 := regexp.MustCompile(`\t{0,}(.*)`)
+	reg2 := regexp.MustCompile(`\t{1,}(.*)`)
 
 	var tmp string
 	if len(reg1.FindAllStringSubmatch(status, -1)) > 0 {
@@ -63,7 +78,7 @@ func NowTime() string {
 	return time.Now().Format("2006-01-02 15:04:05")
 }
 
-func addAndCommit(filepath string, dir string, comment string) {
+func addAndCommit(filepath, dir, comment string) {
 	addCmd := exec.Command("git", "add", filepath)
 	commitCmd := exec.Command("git", "commit", "-m", comment+NowTime())
 	addCmd.Dir = dir
@@ -80,8 +95,26 @@ func addAndCommit(filepath string, dir string, comment string) {
 	}
 }
 
+func gitRM(filepath, dir, comment string) {
+	rmCmd := exec.Command("git", "rm", filepath)
+	commitCmd := exec.Command("git", "commit", "-m", comment+NowTime())
+	rmCmd.Dir = dir
+	commitCmd.Dir = dir
+
+	if err := rmCmd.Run(); err != nil {
+		fmt.Println("git rm", filepath, "err", err)
+		return
+	}
+
+	if err := commitCmd.Run(); err != nil {
+		fmt.Println("git commit", filepath, "err", err)
+		return
+	}
+
+}
+
 func autoGit(dir string) {
-	modified, untracked := gitstatus(dir)
+	modified, untracked, deleted := gitstatus(dir)
 
 	// git add修改过的文件，并commit 修改于什么时间
 	if modified != nil {
@@ -94,6 +127,13 @@ func autoGit(dir string) {
 	if untracked != nil {
 		for _, v := range untracked {
 			addAndCommit(v, dir, "创建于")
+		}
+	}
+
+	// git中删除已删除的文件
+	if deleted != nil {
+		for _, v := range deleted {
+			gitRM(v, dir, v+"删除于")
 		}
 	}
 
