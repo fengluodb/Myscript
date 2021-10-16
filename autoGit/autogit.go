@@ -70,7 +70,7 @@ func addAndCommit(filepath string, dir string, comment string) {
 	commitCmd.Dir = dir
 
 	if err := addCmd.Run(); err != nil {
-		fmt.Println("git add file err:", err)
+		fmt.Println("git add", filepath, "err", err)
 		return
 	}
 
