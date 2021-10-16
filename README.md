@@ -2,6 +2,8 @@
 
 存放我的一些自用脚本。
 
-+ autoGit
+- autoGit
 
   对我的一些库自动更新，并推送到远程。
+
+- [ ]txt to equb
